@@ -30,6 +30,14 @@ async function insertNewPhoto(photo) {
 }
 exports.insertNewPhoto = insertNewPhoto
 
+async function savePhotoInfo(photo){
+    const db = getDbReference()
+    const collection = db.collection('photos')
+    const result = await collection.insertOne(photo)
+    return result.insertedId
+}
+exports.savePhotoInfo = savePhotoInfo
+
 /*
  * Executes a DB query to fetch a single specified photo based on its ID.
  * Returns a Promise that resolves to an object containing the requested
