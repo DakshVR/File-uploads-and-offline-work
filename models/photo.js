@@ -2,7 +2,8 @@
  * Photo schema and data accessor methods.
  */
 
-const { ObjectId } = require('mongodb')
+const { ObjectId, GridFSBucket } = require('mongodb')
+const fs = require("node:fs")
 
 const { getDbReference } = require('../lib/mongo')
 const { extractValidFields } = require('../lib/validation')
@@ -38,6 +39,29 @@ async function savePhotoInfo(photo){
 }
 exports.savePhotoInfo = savePhotoInfo
 
+async function savePhotoFile(photo){
+    return new Promise(function(resolve, reject){
+        const db = getDbReference()
+        const bucket = new GridFSBucket(db, { bucketName: "photos"})
+        const metaDeta = {
+            contentType: photo.contentType,
+            userId: photo.userId
+        }
+        const uploadStream = bucket.openUploadStream(
+            photo.filename,
+            { metadata: metaDeta}
+        )
+        fs.createReadStream(photo.path).pipe(uploadStream)
+            .on("error", function (err){
+                reject(err)
+            })
+            .on("finish", function(result){
+                resolve(result._id)
+            })
+    })
+} 
+exports.savePhotoFile = savePhotoFile
+
 /*
  * Executes a DB query to fetch a single specified photo based on its ID.
  * Returns a Promise that resolves to an object containing the requested
@@ -46,14 +70,31 @@ exports.savePhotoInfo = savePhotoInfo
  */
 async function getPhotoById(id) {
     const db = getDbReference()
-    const collection = db.collection('photos')
+    // const collection = db.collection('photos')
+    const bucket = new GridFSBucket(db, { bucketName: "photos"})
+    
     if (!ObjectId.isValid(id)) {
         return null
     } else {
-        const results = await collection
-        .find({ _id: new ObjectId(id) })
-        .toArray()
+        const results = await bucket.find({_id: new ObjectId(id)})
+            .toArray()
+        // const results = await collection
+        // .find({ _id: new ObjectId(id) })
+        // .toArray()
         return results[0]
     }
 }
 exports.getPhotoById = getPhotoById
+
+// async function getPhotoDownloadStreamByFileName(filename) {
+//     const db = getDbReference()
+//     const bucket = new GridFSBucket(db, { bucketName: "photos"})
+//     return bucket.openDownloadStreamByName(filename)
+// }
+// exports.getPhotoDownloadStreamByFileName = getPhotoDownloadStreamByFileName
+
+exports.getPhotoDownloadStreamByFileName = function (filename) {
+    const db = getDbReference()
+    const bucket = new GridFSBucket(db, { bucketName: "photos" })
+    return bucket.openDownloadStreamByName(filename)
+}

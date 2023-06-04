@@ -6,16 +6,20 @@ const { Router } = require('express')
 const multer = require("multer")
 const crypto = require("node:crypto")
 
-const {savePhotoInfo} = require('../models/photo')
+
 const { validateAgainstSchema } = require('../lib/validation')
 const {
     PhotoSchema,
     insertNewPhoto,
-    getPhotoById
+    getPhotoById,
+    savePhotoInfo,
+    savePhotoFile,
+    getPhotoDownloadStreamByFileName
 } = require('../models/photo')
 const { callbackify } = require('node:util')
 
 const router = Router()
+const express = require('express');
 
 
 
@@ -58,6 +62,24 @@ const upload = multer({
 //     }
 // })
 
+// router.use('/media/photos', express.static('uploads/'));
+
+router.get("/media/photos/:filename", function (req, res, next) {
+
+    getPhotoDownloadStreamByFileName(req.params.filename)
+        .on("error", function(err){
+            if(err.code === "ENOENT"){
+                next()
+            }else{
+                next(err)
+            }
+        })
+        .on("file", function(file){
+            res.status(200).type(file.metadata.contentType)
+        })
+        .pipe(res)
+})
+
 /*
  * GET /photos/{id} - Route to fetch info about a specific photo.
  */
@@ -65,7 +87,16 @@ router.get('/:id', async (req, res, next) => {
     try {
         const photo = await getPhotoById(req.params.id)
         if (photo) {
-            res.status(200).send(photo)
+            // delete photo.path
+            const resBody = {
+                _id: photo._id,
+                filename: photo.filename,
+                contentType: photo.metadata.contentType,
+                userId: photo.metadata.userId,
+                url: `/media/photos/${photo.filename}`
+            }
+            // photo.url = `/media/photos/${photo.filename}`
+            res.status(200).send(resBody)
         } else {
             next()
         }
@@ -87,7 +118,9 @@ router.post("/",  upload.single("image"),async function (req, res, next) {
             path: req.file.path,
             userId: req.body.userId
         }
-        const id = await savePhotoInfo(photo)
+        // const id = await savePhotoInfo(photo)
+        const id = await savePhotoFile(photo)
+        // Delete Photo From Uploads
         res.status(200).send({
             id: id
         })
