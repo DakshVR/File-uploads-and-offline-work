@@ -78,9 +78,7 @@ async function saveNewThumbnail(filename, photoId) {
       const uploadStream = bucket.openUploadStream(filename, {
         metadata: metadata,
       });
-      fs.readdirSync("thumbs/").forEach((file) => {
-        console.log(file);
-      });
+     
       fs.createReadStream(`thumbs/${filename}`)
         .pipe(uploadStream)
         .on("error", function (err) {
@@ -109,9 +107,7 @@ async function getPhotoById(id) {
     } else {
         const results = await bucket.find({_id: new ObjectId(id)})
             .toArray()
-        // const results = await collection
-        // .find({ _id: new ObjectId(id) })
-        // .toArray()
+
         return results[0]
     }
 }
