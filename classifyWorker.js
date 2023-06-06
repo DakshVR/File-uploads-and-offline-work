@@ -32,7 +32,10 @@ async function run() {
         const fullimage = await Jimp.read(imgBuffer);
         await fullimage.resize(100, 100);
 
-        fullimage.write(`thumbs/${photo.filename}`);
+        await fullimage.writeAsync(`thumbs/${photo.filename}`);
+
+        const thumbId = await saveNewThumbnail(photo.filename, photo._id);
+        await updateThumdId(id, thumbId);
       });
     }
     channel.ack(msg);
