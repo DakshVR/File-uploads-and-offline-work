@@ -79,24 +79,26 @@ exports.insertNewBusiness = insertNewBusiness
  * specified ID exists, the returned Promise will resolve to null.
  */
 async function getBusinessById(id) {
-    const db = getDbReference()
-    const collection = db.collection('businesses')
-    if (!ObjectId.isValid(id)) {
-        return null
-    } else {
-        const results = await collection.aggregate([
-            { $match: { _id: new ObjectId(id) } },
-            { $lookup: {
-                from: "photos.files",
-                let: { businessId: "$_id" },
-                pipeline: [
-                    { $match: { $expr: { $eq: ["$metadata.businessId", "$$businessId"] } } }
-                ],
-                as: "photos"
-            }}
-        ]).toArray()
-        return results[0]
-    }
+    const db = getDbReference();
+  const collection = db.collection("businesses");
+  if (!ObjectId.isValid(id)) {
+    return null;
+  } else {
+    const results = await collection
+      .aggregate([
+        { $match: { _id: new ObjectId(id) } },
+        {
+          $lookup: {
+            from: "photos.files",
+            localField: "_id",
+            foreignField: "metadata.businessId",
+            as: "photos",
+          },
+        },
+      ])
+      .toArray();
+    return results[0];
+  }
 }
 exports.getBusinessById = getBusinessById
 

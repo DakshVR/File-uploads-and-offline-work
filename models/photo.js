@@ -55,7 +55,7 @@ async function savePhotoFile(photo){
             
             { metadata: metaDeta}
         )
-        console.log(metaDeta)
+
         fs.createReadStream(photo.path).pipe(uploadStream)
             .on("error", function (err){
                 reject(err)
@@ -66,6 +66,32 @@ async function savePhotoFile(photo){
     })
 } 
 exports.savePhotoFile = savePhotoFile
+
+async function saveNewThumbnail(filename, photoId) {
+    return new Promise(function (resolve, reject) {
+      // photo = extractValidFields(photo, PhotoSchema)
+      // photo.businessId = ObjectId(photo.businessId)
+      const db = getDbReference();
+  
+      const bucket = new GridFSBucket(db, { bucketName: "thumbs" });
+      const metadata = { contentType: "image/jpeg", photoId: photoId };
+      const uploadStream = bucket.openUploadStream(filename, {
+        metadata: metadata,
+      });
+      fs.readdirSync("thumbs/").forEach((file) => {
+        console.log(file);
+      });
+      fs.createReadStream(`thumbs/${filename}`)
+        .pipe(uploadStream)
+        .on("error", function (err) {
+          reject(err);
+        })
+        .on("finish", function (result) {
+          resolve(result._id);
+        });
+    });
+  }
+exports.saveNewThumbnail = saveNewThumbnail;
 
 /*
  * Executes a DB query to fetch a single specified photo based on its ID.
@@ -91,12 +117,6 @@ async function getPhotoById(id) {
 }
 exports.getPhotoById = getPhotoById
 
-// async function getPhotoDownloadStreamByFileName(filename) {
-//     const db = getDbReference()
-//     const bucket = new GridFSBucket(db, { bucketName: "photos"})
-//     return bucket.openDownloadStreamByName(filename)
-// }
-// exports.getPhotoDownloadStreamByFileName = getPhotoDownloadStreamByFileName
 
 exports.getPhotoDownloadStreamByFileName = function (filename) {
     const db = getDbReference()
@@ -113,8 +133,27 @@ exports.getDownloadStreamById = function (id) {
       return bucket.openDownloadStream(new ObjectId(id));
     }
   };
-  
-  exports.updateImageTagsById = async function (id, tags) {
+
+exports.getThumbsDownloadStreamByFilename = function (filename) {
+    const db = getDbReference();
+    const bucket = new GridFSBucket(db, { bucketName: "thumbs" });
+    return bucket.openDownloadStreamByName(filename);
+  };
+
+exports.updateThumdId = async function (id, thumbId) {
+    const db = getDbReference();
+    const collection = db.collection("photos.files");
+    if (!ObjectId.isValid(id)) {
+      return null;
+    } else {
+      const result = await collection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { thumbId: thumbId } }
+      );
+    }
+  };
+
+exports.updateImageTagsById = async function (id, tags) {
     const db = getDbReference();
     const collection = db.collection("photos.files");
     if (!ObjectId.isValid(id)) {

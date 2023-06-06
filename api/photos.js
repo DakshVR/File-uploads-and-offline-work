@@ -3,10 +3,11 @@
  */
 
 const { Router } = require('express')
+const express = require('express');
 const multer = require("multer")
 const { getChannel } = require("../lib/rabbitmq");
 const crypto = require("node:crypto")
-
+const fs = require("node:fs")
 
 const { validateAgainstSchema } = require('../lib/validation')
 const {
@@ -20,7 +21,7 @@ const {
 // const { callbackify } = require('node:util')
 
 const router = Router()
-const express = require('express');
+
 
 
 const imageTypes = {
@@ -64,48 +65,31 @@ const upload = multer({
 
 // router.use('/media/photos', express.static('uploads/'));
 
-router.get("/media/photos/:filename", function (req, res, next) {
-
-    getPhotoDownloadStreamByFileName(req.params.filename)
-        .on("error", function(err){
-            if(err.code === "ENOENT"){
-                next()
-            }else{
-                next(err)
-            }
-        })
-        .on("file", function(file){
-            res.status(200).type(file.metadata.contentType)
-        })
-        .pipe(res)
-})
-
 /*
  * GET /photos/{id} - Route to fetch info about a specific photo.
  */
 router.get('/:id', async (req, res, next) => {
     try {
-        const photo = await getPhotoById(req.params.id)
+        const photo = await getPhotoById(req.params.id);
         if (photo) {
-            // delete photo.path
-            const resBody = {
-                _id: photo._id,
-                filename: photo.filename,
-                contentType: photo.metadata.contentType,
-                userId: photo.metadata.userId,
-                tags : photo.metadata.tags,
-                url: `/media/photos/${photo.filename}`,
-                businessId: photo.metadata.businessId    
-                
-            }
-            // photo.url = `/media/photos/${photo.filename}`
-            res.status(200).send(resBody)
+          delete photo.path;
+          const resBody = {
+            id: photo._id,
+            filename: photo.filename,
+            contentType: photo.metadata.contentType,
+            userId: photo.metadata.userId,
+            tags: photo.metadata.tags,
+            url: `/media/photos/${photo.filename}`,
+            thumbURL: `/media/thumbs/${photo.filename}`,
+          };
+    
+          res.status(200).send(resBody);
         } else {
-            next()
+          next();
         }
-    } catch (err) {
-        next(err)
-    }
+      } catch (err) {
+        next(err);
+      }
 })
 
 /*
@@ -123,7 +107,6 @@ router.post("/",  upload.single("photo"),async function (req, res, next) {
           businessId: req.body.businessId,
           caption: req.body.caption
         };
-        console.log(photo.businessId)
         try {
           const id = await savePhotoFile(photo);
           const channel = getChannel();
