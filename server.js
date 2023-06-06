@@ -11,7 +11,7 @@ const morgan = require('morgan')
 
 const api = require('./api')
 const { connectToDb } = require('./lib/mongo')
-
+const { connectToRabbitMQ } = require("./lib/rabbitmq");
 const app = express()
 const port = process.env.PORT || 8000
 
@@ -46,8 +46,9 @@ app.use('*', function (err, req, res, next) {
     })
 })
 
-connectToDb(function () {
+connectToDb(async function () {
+    await connectToRabbitMQ("photos");
     app.listen(port, function () {
-        console.log("== Server is running on port", port)
-    })
-})
+      console.log("== Server is running on port", port);
+    });
+  });

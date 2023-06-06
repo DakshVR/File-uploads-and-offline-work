@@ -7,6 +7,7 @@ const fs = require("node:fs")
 
 const { getDbReference } = require('../lib/mongo')
 const { extractValidFields } = require('../lib/validation')
+const { getBusinessById } = require('./business')
 
 /*
  * Schema describing required/optional fields of a photo object.
@@ -21,15 +22,15 @@ exports.PhotoSchema = PhotoSchema
  * Executes a DB query to insert a new photo into the database.  Returns
  * a Promise that resolves to the ID of the newly-created photo entry.
  */
-async function insertNewPhoto(photo) {
-    photo = extractValidFields(photo, PhotoSchema)
-    photo.businessId = ObjectId(photo.businessId)
-    const db = getDbReference()
-    const collection = db.collection('photos')
-    const result = await collection.insertOne(photo)
-    return result.insertedId
-}
-exports.insertNewPhoto = insertNewPhoto
+// async function insertNewPhoto(photo) {
+//     photo = extractValidFields(photo, PhotoSchema)
+//     photo.businessId = ObjectId(photo.businessId)
+//     const db = getDbReference()
+//     const collection = db.collection('photos')
+//     const result = await collection.insertOne(photo)
+//     return result.insertedId
+// }
+// exports.insertNewPhoto = insertNewPhoto
 
 async function savePhotoInfo(photo){
     const db = getDbReference()
@@ -45,12 +46,16 @@ async function savePhotoFile(photo){
         const bucket = new GridFSBucket(db, { bucketName: "photos"})
         const metaDeta = {
             contentType: photo.contentType,
-            userId: photo.userId
+            userId: photo.userId,
+            businessId: new ObjectId(photo.businessId)     
         }
+
         const uploadStream = bucket.openUploadStream(
             photo.filename,
+            
             { metadata: metaDeta}
         )
+        console.log(metaDeta)
         fs.createReadStream(photo.path).pipe(uploadStream)
             .on("error", function (err){
                 reject(err)
@@ -98,3 +103,29 @@ exports.getPhotoDownloadStreamByFileName = function (filename) {
     const bucket = new GridFSBucket(db, { bucketName: "photos" })
     return bucket.openDownloadStreamByName(filename)
 }
+
+exports.getDownloadStreamById = function (id) {
+    const db = getDbReference();
+    const bucket = new GridFSBucket(db, { bucketName: "photos" });
+    if (!ObjectId.isValid(id)) {
+      return null;
+    } else {
+      return bucket.openDownloadStream(new ObjectId(id));
+    }
+  };
+  
+  exports.updateImageTagsById = async function (id, tags) {
+    const db = getDbReference();
+    const collection = db.collection("photos.files");
+    if (!ObjectId.isValid(id)) {
+      return null;
+    } else {
+      const result = await collection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { "metadata.tags": tags } }
+      );
+      return result.matchedCount > 0;
+    }
+  };
+
+  

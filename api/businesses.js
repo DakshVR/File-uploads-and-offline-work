@@ -64,6 +64,7 @@ router.post('/', async (req, res) => {
  */
 router.get('/:id', async (req, res, next) => {
     try {
+        
         const business = await getBusinessById(req.params.id)
         if (business) {
             res.status(200).send(business)

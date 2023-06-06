@@ -4,6 +4,7 @@
 
 const { Router } = require('express')
 const multer = require("multer")
+const { getChannel } = require("../lib/rabbitmq");
 const crypto = require("node:crypto")
 
 
@@ -16,11 +17,10 @@ const {
     savePhotoFile,
     getPhotoDownloadStreamByFileName
 } = require('../models/photo')
-const { callbackify } = require('node:util')
+// const { callbackify } = require('node:util')
 
 const router = Router()
 const express = require('express');
-
 
 
 const imageTypes = {
@@ -93,7 +93,10 @@ router.get('/:id', async (req, res, next) => {
                 filename: photo.filename,
                 contentType: photo.metadata.contentType,
                 userId: photo.metadata.userId,
-                url: `/media/photos/${photo.filename}`
+                tags : photo.metadata.tags,
+                url: `/media/photos/${photo.filename}`,
+                businessId: photo.metadata.businessId    
+                
             }
             // photo.url = `/media/photos/${photo.filename}`
             res.status(200).send(resBody)
@@ -108,26 +111,34 @@ router.get('/:id', async (req, res, next) => {
 /*
  * POST /photos/ - Route to post photo.
  */
-router.post("/",  upload.single("image"),async function (req, res, next) {
+router.post("/",  upload.single("photo"),async function (req, res, next) {
       console.log("Req File=====", req.file);
       console.log("req Body====", req.body);
-      if (req.file && req.body && req.body.userId){
+      if (req.file && req.body && req.body.userId) {
         const photo = {
-            contentType: req.file.mimetype,
-            filename: req.file.filename,
-            path: req.file.path,
-            userId: req.body.userId
+          contentType: req.file.mimetype,
+          filename: req.file.filename,
+          path: req.file.path,
+          userId: req.body.userId,
+          businessId: req.body.businessId,
+          caption: req.body.caption
+        };
+        console.log(photo.businessId)
+        try {
+          const id = await savePhotoFile(photo);
+          const channel = getChannel();
+          channel.sendToQueue("photos", Buffer.from(id.toString()));
+          // await fs.unlink(req.file.path);
+          res.status(200).send({
+            id: id,
+          });
+        } catch (err) {
+          next(err);
         }
-        // const id = await savePhotoInfo(photo)
-        const id = await savePhotoFile(photo)
-        // Delete Photo From Uploads
-        res.status(200).send({
-            id: id
-        })
-      } else{
+      } else {
         res.status(400).send({
-            err: "Invalid File"
-        })
+          err: "Invalid file",
+        });
       }
 });
 
